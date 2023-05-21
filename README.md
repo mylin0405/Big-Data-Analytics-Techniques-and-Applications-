@@ -1,5 +1,5 @@
 # Big-Data-Analytics-Techniques-and-Applications-
-NYCU 2023 BDA Final Project
+NYCU 2023 BDA Final Project  
 Exploring Predictive Factors for US Stock Movements
 
 ## Repository Structure
