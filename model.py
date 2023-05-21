@@ -172,7 +172,7 @@ if __name__ == "__main__":
                     [True, True, False], # M + S
                     [False, True, True], # S + T
                     [False, True, False] ] # S
-    combinations_name = ["M + S + T", "M + S", "S + T", "S"]
+    combinations_name = ["M+S+T", "M+S", "S+T", "S"]
     window_size = [5, 10, 20]
 
     # test different combinations
@@ -181,13 +181,15 @@ if __name__ == "__main__":
     names = []
     for model in model_names: 
         for window in window_size: 
-            for combination in combinations:
+            for i, combination in enumerate(combinations):
                 macro, stock, technical_indicator = combination
                 print(f"Model: {model}, window: {window}, combination: {combination}")
                 train_dataset, test_dataset = dataloader("./data", window=window, macro=macro, stock=stock, technical_indicator=technical_indicator)
                 train_dataset = spark.createDataFrame(train_dataset)
                 test_dataset = spark.createDataFrame(test_dataset)
                 pipelineModel = fit_model(train_dataset, model_name=model)
+                pipelineModel.save(f"./pipeline_model_weights/{model}_window{window}_{combinations_name[i]}")
+                # pipelineModel = Pipeline.load("/pipeline_model_weights/LogisticRegression_5_M + S + T")
                 accuracy, MCC = evaluate_model(pipelineModel, test_dataset)
                 accuracys.append(accuracy)
                 MCCs.append(MCC)
@@ -202,4 +204,3 @@ if __name__ == "__main__":
         df = pd.DataFrame(MCCs[:, i, :], index=model_names, columns=combinations_name)
         df.to_csv(f"./results/MCC/Window_{window_size[i]}.csv")
     
-    #get_feature_importance(window=20)
