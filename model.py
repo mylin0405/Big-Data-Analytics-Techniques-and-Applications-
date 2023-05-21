@@ -26,6 +26,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import warnings
+import math
 warnings.filterwarnings("ignore")
 
 # %%
@@ -120,14 +121,22 @@ def evaluate_model(pipelineModel, df_test):
     Evaluate model
     """
     # 5. predict by training pipelineModel
-    predicted = pipelineModel.transform(df_test)
-    predicted.select("features", "label", "prediction").show(5)
-    evaluator = MulticlassClassificationEvaluator(labelCol="label", 
-                                                predictionCol="prediction", 
-                                                metricName="accuracy")
-    accuracy = evaluator.evaluate(predicted)
-    return accuracy
-        
+    predictions = pipelineModel.transform(df_test)
+    predictions.select("features", "label", "prediction").show(5)
+    # True Positives
+    tp= predictions[(predictions.label == 1) & (predictions.prediction == 1)].count()
+    # True Negatives
+    tn= predictions[(predictions.label == 0) & (predictions.prediction == 0)].count()
+    # False Positives
+    fp= predictions[(predictions.label == 0) & (predictions.prediction == 1)].count()
+    # False Negatives
+    fn= predictions[(predictions.label == 1) & (predictions.prediction == 0)].count()
+    # Model Accuracy 
+    accuracy = float(tp+tn)/float(tp+tn+fp+fn)
+    # Matthews correlation coefficient
+    MCC = (tp * tn - fp * fn) / math.sqrt((tp + fp) * (tp + fn) * (fp + tn) * (tn + fn))
+    return accuracy, MCC
+
 def get_feature_importance(window=20):
     train_dataset, test_dataset = dataloader("./data", window=window, macro=True, stock=True, technical_indicator=True)
     train_dataset = spark.createDataFrame(train_dataset)
@@ -168,6 +177,7 @@ if __name__ == "__main__":
 
     # test different combinations
     accuracys = []
+    MCCs = []
     names = []
     for model in model_names: 
         for window in window_size: 
@@ -178,14 +188,18 @@ if __name__ == "__main__":
                 train_dataset = spark.createDataFrame(train_dataset)
                 test_dataset = spark.createDataFrame(test_dataset)
                 pipelineModel = fit_model(train_dataset, model_name=model)
-                accuracy = evaluate_model(pipelineModel, test_dataset)
+                accuracy, MCC = evaluate_model(pipelineModel, test_dataset)
                 accuracys.append(accuracy)
-                print(f"{model} accuracy is {accuracy}, window is {window}, combination is {combination}")
+                MCCs.append(MCC)
+                print(f"{model} accuracy is {accuracy}, MCC is {MCC}, window is {window}, combination is {combination}")
 
     # store results to csv
     accuracys = np.array(accuracys).reshape(4, 3, 4)
+    MCCs = np.array(MCCs).reshape(4, 3, 4)
     for i in range(3):
         df = pd.DataFrame(accuracys[:, i, :], index=model_names, columns=combinations_name)
-        df.to_csv(f"./results/Window_{window_size[i]}.csv", sep="\t")
+        df.to_csv(f"./results/accuracy/Window_{window_size[i]}.csv")
+        df = pd.DataFrame(MCCs[:, i, :], index=model_names, columns=combinations_name)
+        df.to_csv(f"./results/MCC/Window_{window_size[i]}.csv")
     
-    get_feature_importance(window=20)
+    #get_feature_importance(window=20)
